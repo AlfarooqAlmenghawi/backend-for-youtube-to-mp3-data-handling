@@ -10,50 +10,31 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(cors());
 
+const youtubedl = require("youtube-dl-exec");
+
 app.post("/convert", async (req, res) => {
   const { url } = req.body;
 
-  console.log("Received URL:", url);
-
-  if (!ytdl.validateURL(url)) {
-    console.error("Invalid YouTube URL");
-    return res.status(400).json({ error: "Invalid YouTube URL" });
-  }
-
   try {
-    const videoInfo = await ytdl.getInfo(url);
-    console.log("Video Info Retrieved:", videoInfo.videoDetails.title);
-
-    const title = videoInfo.videoDetails.title.replace(/[^a-zA-Z0-9]/g, "_"); // Sanitize title
-    const outputPath = path.resolve(__dirname, `${title}.mp3`);
+    const outputPath = `${Date.now()}.mp3`;
 
     // Download and convert the audio
-    const audioStream = ytdl(url, { filter: "audioonly" });
+    await youtubedl(url, {
+      extractAudio: true,
+      audioFormat: "mp3",
+      output: outputPath,
+    });
 
-    ffmpeg(audioStream)
-      .audioCodec("libmp3lame")
-      .audioBitrate(128)
-      .format("mp3")
-      .on("start", () => {
-        console.log("FFmpeg started processing the audio.");
-      })
-      .on("end", () => {
-        console.log("FFmpeg finished processing the audio.");
-        res.download(outputPath, (err) => {
-          if (!err) {
-            fs.unlinkSync(outputPath); // Clean up the file after download
-            console.log("File successfully sent and cleaned up.");
-          }
-        });
-      })
-      .on("error", (err) => {
-        console.error("FFmpeg Error:", err);
-        res.status(500).json({ error: "Failed to process audio" });
-      })
-      .save(outputPath);
+    res.download(outputPath, (err) => {
+      if (!err) {
+        fs.unlinkSync(outputPath); // Clean up file after download
+      }
+    });
   } catch (err) {
-    console.error("Unexpected Error:", err);
-    res.status(500).json({ error: "Something went wrong" });
+    console.error("Error downloading video:", err.message);
+    res
+      .status(500)
+      .json({ error: "Failed to process video", details: err.message });
   }
 });
 
