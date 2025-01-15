@@ -1,16 +1,17 @@
 const express = require("express");
-const ytdl = require("ytdl-core");
-const ffmpeg = require("fluent-ffmpeg");
 const fs = require("fs");
 const path = require("path");
 const cors = require("cors");
+const youtubedl = require("youtube-dl-exec");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(cors());
 
-const youtubedl = require("youtube-dl-exec");
+// ENV variable for cookies.
+const cookies = process.env.YOUTUBE_COOKIES;
 
 app.post("/convert", async (req, res) => {
   const { url } = req.body;
@@ -23,6 +24,7 @@ app.post("/convert", async (req, res) => {
       extractAudio: true,
       audioFormat: "mp3",
       output: outputPath,
+      cookies: cookies,
     });
 
     res.download(outputPath, (err) => {
