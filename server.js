@@ -16,24 +16,35 @@ const cookies = process.env.YOUTUBE_COOKIES;
 app.post("/convert", async (req, res) => {
   const { url } = req.body;
 
+  if (!url) {
+    return res.status(400).json({ error: "YouTube URL is required" });
+  }
+
   try {
-    const outputPath = `${Date.now()}.mp3`;
+    const cookiesContent = process.env.YOUTUBE_COOKIES;
+    const cookiesPath = `./temp_cookies_${Date.now()}.txt`; // Unique temporary file
+    fs.writeFileSync(cookiesPath, cookiesContent);
+
+    const outputPath = `./temp_audio_${Date.now()}.mp3`;
 
     // Download and convert the audio
     await youtubedl(url, {
       extractAudio: true,
       audioFormat: "mp3",
       output: outputPath,
-      cookies: cookies,
+      cookies: cookiesPath,
     });
 
     res.download(outputPath, (err) => {
-      if (!err) {
-        fs.unlinkSync(outputPath); // Clean up file after download
-      }
+      if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+      if (fs.existsSync(cookiesPath)) fs.unlinkSync(cookiesPath);
     });
   } catch (err) {
     console.error("Error downloading video:", err.message);
+
+    // Clean up cookies file on error
+    if (fs.existsSync(cookiesPath)) fs.unlinkSync(cookiesPath);
+
     res
       .status(500)
       .json({ error: "Failed to process video", details: err.message });
